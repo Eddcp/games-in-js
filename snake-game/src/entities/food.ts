@@ -1,4 +1,5 @@
 import { GRID_SIZE } from "../constants";
+import type { Snake } from "./snake";
 
 type Position = {
   x: number;
@@ -8,7 +9,10 @@ type Position = {
 export class Food {
   position: Position;
 
-  constructor() {
+  constructor(snake: Snake) {
+    while (this.isOnSnake(snake)) {
+      this.position = this.getRandomPosition();
+    }
     this.position = this.getRandomPosition();
   }
 
@@ -17,6 +21,22 @@ export class Food {
       x: Math.floor(Math.random() * GRID_SIZE),
       y: Math.floor(Math.random() * GRID_SIZE),
     };
+  }
+
+  respawn(snake: Snake) {
+    while (this.isOnSnake(snake)) {
+      this.position = this.getRandomPosition();
+    }
+    this.position = this.getRandomPosition();
+  }
+
+  isOnSnake(snake: Snake) {
+    if (!snake || !snake.body) return false;
+
+    return snake.body.some(
+      (segment) =>
+        segment.x === this.position?.x && segment.y === this.position?.y
+    );
   }
 
   draw(ctx: CanvasRenderingContext2D, cellSize: number) {

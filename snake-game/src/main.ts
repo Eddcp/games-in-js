@@ -1,40 +1,64 @@
 import { CANVAS_SIZE, CELL_SIZE, DIRECTIONS, GRID_SIZE } from "./constants";
 import { Food } from "./entities/food";
 import { Snake } from "./entities/snake";
+import { ScreenManager } from "./managers/screen-manager";
 import "./style.css";
 
 class Game {
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
+  canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+  ctx = this.canvas.getContext("2d")! as CanvasRenderingContext2D;
+  screenManager = new ScreenManager(this.ctx, this.canvas);
   snake = new Snake();
-  food = new Food();
+  food = new Food(this.snake);
   isPlaying = false;
+  isGameOver = false;
+  score = 0;
 
   constructor() {
-    this.canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
-    this.ctx = this.canvas.getContext("2d")! as CanvasRenderingContext2D;
     this.canvas.width = CANVAS_SIZE;
     this.canvas.height = CANVAS_SIZE;
 
     this.setupControls();
     this.startGameLoop();
   }
+
+  reset() {
+    this.snake = new Snake();
+    this.food = new Food(this.snake);
+    this.isPlaying = true;
+    this.isGameOver = false;
+    this.score = 0;
+  }
+
   setupControls() {
     document.addEventListener("keydown", (event) => {
-      if (!this.isPlaying && event.code === "Enter") {
+      if (
+        !this.isPlaying &&
+        !this.isGameOver &&
+        (event.code === "Enter" || event.code === "Space")
+      ) {
         this.isPlaying = true;
         return;
       }
 
-      const newDirection = {
-        ArrowUp: DIRECTIONS.UP,
-        ArrowDown: DIRECTIONS.DOWN,
-        ArrowLeft: DIRECTIONS.LEFT,
-        ArrowRight: DIRECTIONS.RIGHT,
-      }[event.code];
+      if (
+        this.isGameOver &&
+        (event.code === "Enter" || event.code === "Space")
+      ) {
+        this.reset();
+      }
 
-      if (newDirection) {
-        this.snake.changeDirection(newDirection);
+      if (this.isPlaying) {
+        const newDirection = {
+          ArrowUp: DIRECTIONS.UP,
+          ArrowDown: DIRECTIONS.DOWN,
+          ArrowLeft: DIRECTIONS.LEFT,
+          ArrowRight: DIRECTIONS.RIGHT,
+        }[event.code];
+
+        if (newDirection) {
+          this.snake.changeDirection(newDirection);
+        }
       }
     });
   }
@@ -66,6 +90,41 @@ class Game {
     this.snake.draw(this.ctx, CELL_SIZE);
 
     this.food.draw(this.ctx, CELL_SIZE);
+
+    this.drawScore();
+
+    if (!this.isPlaying && !this.isGameOver) {
+      this.screenManager.drawInitialScreen();
+    }
+
+    if (this.isGameOver) {
+      this.screenManager.drawGameOverScreen(this.score);
+    }
+  }
+
+  drawScore() {
+    this.ctx.strokeStyle = "black";
+    this.ctx.lineWidth = 3;
+    this.ctx.fillStyle = "white";
+    this.ctx.textAlign = "left";
+    this.ctx.font = "20px 'Press Start 2P'";
+    this.ctx.fillText(`Score: ${this.score}`, 20, 40);
+  }
+
+  updateScore() {
+    this.score++;
+  }
+
+  updateEntities() {
+    this.snake.move();
+
+    const head = this.snake.getHead();
+    if (head.x === this.food.position.x && head.y === this.food.position.y) {
+      this.updateScore();
+      this.food.respawn(this.snake);
+    } else {
+      this.snake.removeTail();
+    }
   }
 
   update() {
@@ -77,9 +136,10 @@ class Game {
 
     if (this.snake.checkCollisions()) {
       this.isPlaying = false;
+      this.isGameOver = true;
       return;
     }
-    this.snake.move();
+    this.updateEntities();
   }
 
   startGameLoop() {
